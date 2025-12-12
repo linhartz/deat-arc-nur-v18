@@ -1,77 +1,36 @@
-let ws = null;
-let lastModule = "";
-let lastVariant = "";
+let socket = null;
 
-function loadSample(module, variant) {
-    lastModule = module;
-    lastVariant = variant;
-
-    const presets = {
-        "ARC": {
-            "A": { "signals": [0.9, 0.8, 0.7] },
-            "B": { "signals": [0.5, 0.4, 0.3] }
-        },
-        "CR": {
-            "A": { "signals": [0.8, 0.6, 0.55] },
-            "B": { "signals": [0.4, 0.35, 0.3] }
-        },
-        "NUR": {
-            "A": { "signals": [0.7, 0.8, 0.85] },
-            "B": { "signals": [0.3, 0.4, 0.5] }
-        }
-    };
-
-    document.getElementById("jsonInput").value = JSON.stringify(
-        presets[module][variant],
-        null,
-        2
-    );
-}
-
-function connectWS() {
-    ws = new WebSocket(`ws://${location.host}/ws/nur`);
-
-    ws.onopen = () => {
-        document.getElementById("status").textContent = "WebSocket připojen";
-        document.getElementById("status").className = "good";
-    };
-
-    ws.onmessage = (ev) => {
-        const data = JSON.parse(ev.data);
-        addResult(data);
-    };
-
-    ws.onclose = () => {
-        document.getElementById("status").textContent = "WebSocket není připojen";
-        document.getElementById("status").className = "bad";
-        setTimeout(connectWS, 2000);
-    };
-}
-
-function send() {
-    if (!ws || ws.readyState !== 1) {
-        alert("WebSocket není připojen");
-        return;
+function connectWS(moduleName) {
+    if (socket !== null && socket.readyState === WebSocket.OPEN) {
+        socket.close();
     }
 
-    const payload = JSON.parse(document.getElementById("jsonInput").value);
+    const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+    const host = window.location.host;
 
-    ws.send(JSON.stringify({
-        module: lastModule,
-        payload: payload
-    }));
+    const wsUrl = `${protocol}${host}/ws/${moduleName}`;
+    console.log("Connecting to:", wsUrl);
+
+    socket = new WebSocket(wsUrl);
+
+    socket.onopen = () => {
+        console.log("WS opened:", wsUrl);
+    };
+
+    socket.onmessage = (event) => {
+        const resultBox = document.getElementById("result");
+        resultBox.textContent = event.data;
+    };
+
+    socket.onclose = () => console.log("WS closed");
+    socket.onerror = (err) => console.error("WS error:", err);
 }
 
-function addResult(r) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-        <td>${lastModule} – ${lastVariant}</td>
-        <td>${r.metric}</td>
-        <td>${r.value}</td>
-        <td><pre>${r.equation}</pre></td>
-        <td>${r.interpretation}</td>
-    `;
-    document.getElementById("results").appendChild(tr);
-}
-
-connectWS();
+document.getElementById("runBtn").onclick = () => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        const input = document.getElementById("jsonInput").value;
+        socket.send(input);
+    } else {
+        alert("WebSocket není připojen!");
+    }
+};
