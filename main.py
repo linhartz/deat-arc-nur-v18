@@ -1,125 +1,90 @@
+# main.py
 import os
+import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-app = FastAPI(title="DEAT ARC–CR–NUR Stabilizer v18", version="0.18")
+app = FastAPI(title="DEAT ARC–CR–NUR Stabilizer", version="0.18")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-# Mount statických souborů
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/editor", include_in_schema=False)
 def serve_editor():
     return FileResponse(os.path.join(STATIC_DIR, "editor.html"))
 
-# -------------------------------------------------------
-# Výpočetní moduly
-# -------------------------------------------------------
-
+# ---- compute functions (named members in equations) ----
 def compute_arc(payload):
-    s = payload["signals"]
-    reliability = round((s[0] * 0.4 + s[1] * 0.3 + s[2] * 0.3), 3)
-    return {
-        "metric": "reliability",
-        "value": reliability,
-        "equation": f"(signals[0]*0.4 + signals[1]*0.3 + signals[2]*0.3) = {reliability}"
-    }
+    s = payload.get("signals", {})
+    d = payload.get("adapt_delta", {})
+    cn = s.get("CN", {}).get("concentration", 0.0)
+    ru = s.get("RU", {}).get("entropy", 0.0)
+    us = s.get("US", {}).get("profit_bias", 0.0)
+    dr = abs(d.get("ru", 0.0))
+    # equation: 1 - RU*0.6 + CN*0.4 - |dr|*0.5
+    value = max(0.0, min(1.0, 1 - ru*0.6 + cn*0.4 - dr*0.5))
+    eq = f"1 - RU({ru})*0.6 + CN({cn})*0.4 - |dr|({dr})*0.5 = {value:.3f}"
+    comment = ("Vysoká hodnota: populace se ztotožňuje se stabilní/agresivní politikou. "
+               "Nízká hodnota: blíží se převzetí nebo revoluce.")
+    return {"metric":"reliability","value":round(value,3),"equation":eq,"interpretation":comment}
 
 def compute_cr(payload):
-    s = payload["signals"]
-    chaos = round((s[0] * 0.55 + s[1] * 0.25 + s[2] * 0.2), 3)
-    return {
-        "metric": "chaos",
-        "value": chaos,
-        "equation": f"(signals[0]*0.55 + signals[1]*0.25 + signals[2]*0.2) = {chaos}"
-    }
+    s = payload.get("signals", {})
+    d = payload.get("adapt_delta", {})
+    ru = s.get("RU", {}).get("entropy", 0.0)
+    cn = s.get("CN", {}).get("concentration", 0.0)
+    dr = abs(d.get("ru", 0.0))
+    # equation: RU*0.7 + (1-CN)*0.3 + |dr|*0.4
+    value = max(0.0, min(1.0, ru*0.7 + (1-cn)*0.3 + dr*0.4))
+    eq = f"RU({ru})*0.7 + (1-CN({cn}))*0.3 + |dr|({dr})*0.4 = {value:.3f}"
+    comment = ("Vysoká hodnota: CR provokatéři dokážou vyvolat systémový chaos. "
+               "Nízká: CR jsou směšní. Vysoká CR při vysoké ARC → provokace posílena propagandou.")
+    return {"metric":"chaos","value":round(value,3),"equation":eq,"interpretation":comment}
 
 def compute_nur(payload):
-    s = payload["signals"]
-    stability = round((s[0] * 0.2 + s[1] * 0.4 + s[2] * 0.4), 3)
-    return {
-        "metric": "stability",
-        "value": stability,
-        "equation": f"(signals[0]*0.2 + signals[1]*0.4 + signals[2]*0.4) = {stability}"
-    }
+    s = payload.get("signals", {})
+    d = payload.get("adapt_delta", {})
+    cn = s.get("CN", {}).get("concentration", 0.0)
+    ru = s.get("RU", {}).get("entropy", 0.0)
+    dr = abs(d.get("cn", 0.0))
+    # equation: CN*0.4 + (1-RU)*0.4 - |dr|*0.2
+    value = max(0.0, min(1.0, cn*0.4 + (1-ru)*0.4 - dr*0.2))
+    eq = f"CN({cn})*0.4 + (1-RU({ru}))*0.4 - |dr|({dr})*0.2 = {value:.3f}"
+    comment = ("Vysoká hodnota: uživatel rozumí, nezesiluje cizí propagandu; má understanding, novelty, reflection. "
+               "Nízká: zranitelný vůči manipulaci.")
+    return {"metric":"stability","value":round(value,3),"equation":eq,"interpretation":comment}
 
-def interpret(module, result):
-    v = result["value"]
-
-    if module == "ARC":
-        if v > 0.7:
-            return "Obyvatelstvo souzní s politikou → stabilní/agresivní podpora."
-        elif v > 0.4:
-            return "Smíšená podpora → možnost zásahu CR."
-        else:
-            return "Blíží se převzetí nebo revoluce."
-
-    if module == "CR":
-        if v > 0.7:
-            return "Provokatéři generují systémový chaos."
-        elif v > 0.4:
-            return "Částečný vliv, propagandu lze tlumit."
-        else:
-            return "CR jsou směšní, žádná destabilizace."
-
-    if module == "NUR":
-        if v > 0.7:
-            return "Uživatel rozumí, analyzuje a není zranitelný propagandou."
-        elif v > 0.4:
-            return "Částečně odolný, ale může být ovlivněn."
-        else:
-            return "Slabé porozumění, náchylnost k manipulaci."
-
-    return "Bez interpretace."
-
-def compute(module, payload):
-    if module == "ARC":
-        r = compute_arc(payload)
-    elif module == "CR":
-        r = compute_cr(payload)
-    else:
-        r = compute_nur(payload)
-
-    r["interpretation"] = interpret(module, r)
-    return r
-
-# -------------------------------------------------------
-# WebSocket server
-# -------------------------------------------------------
-
-class ConnectionManager:
-    def __init__(self):
-        self.active = []
-
-    async def connect(self, ws: WebSocket):
-        await ws.accept()
-        self.active.append(ws)
-
-    def disconnect(self, ws: WebSocket):
-        if ws in self.active:
-            self.active.remove(ws)
-
-manager = ConnectionManager()
-
-@app.websocket("/ws/nur")
-async def ws_handler(ws: WebSocket):
-    await manager.connect(ws)
+# ---- websocket endpoint accepting module path param ----
+@app.websocket("/ws/{module}")
+async def websocket_module(websocket: WebSocket, module: str):
+    await websocket.accept()
     try:
         while True:
-            data = await ws.receive_json()
-            module = data["module"]
-            payload = data["payload"]
+            raw = await websocket.receive_text()
+            try:
+                data = json.loads(raw)
+            except Exception:
+                await websocket.send_json({"error":"invalid json"})
+                continue
 
-            result = compute(module, payload)
+            module_up = module.upper()
+            if module_up == "ARC":
+                res = compute_arc(data.get("payload", data))
+            elif module_up == "CR":
+                res = compute_cr(data.get("payload", data))
+            elif module_up == "NUR":
+                res = compute_nur(data.get("payload", data))
+            else:
+                res = {"error":"unknown module"}
 
-            await ws.send_json(result)
+            await websocket.send_json({"module": module_up, "result": res})
     except WebSocketDisconnect:
-        manager.disconnect(ws)
+        return
 
-# Lokální běh
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)

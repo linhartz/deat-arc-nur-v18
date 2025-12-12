@@ -1,47 +1,47 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="cs">
 <head>
-    <meta charset="UTF-8">
-    <title>JSON Editor – NUR/ARC/CR</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        textarea {
-            width: 100%;
-            height: 250px;
-            font-family: monospace;
-            font-size: 14px;
-        }
-        #result {
-            white-space: pre-wrap;
-            background: #f0f0f0;
-            padding: 12px;
-            margin-top: 12px;
-            border-radius: 6px;
-        }
-        button {
-            margin: 5px;
-            padding: 8px 12px;
-        }
-    </style>
+<meta charset="utf-8"/>
+<title>DEAT ARC/CR/NUR Editor</title>
+<style>
+body{font-family:Arial;margin:20px}
+#jsonInput{width:700px;height:220px;font-family:monospace}
+button{margin:4px;padding:6px 10px}
+#status{font-weight:bold;margin-bottom:10px}
+table{width:100%;border-collapse:collapse;margin-top:12px}
+th,td{border:1px solid #ccc;padding:8px;vertical-align:top}
+.green{background:#c5f7c5}
+.orange{background:#ffe9a8}
+.red{background:#ffb3b3}
+pre{white-space:pre-wrap;margin:0}
+</style>
 </head>
 <body>
+<h2>DEAT ARC / CR / NUR – Editor</h2>
+<div id="status">WS není připojen</div>
 
-<h1>ARC / CR / NUR – JSON Editor</h1>
+<div>
+  <button id="arcBtn">ARC</button>
+  <button id="crBtn">CR</button>
+  <button id="nurBtn">NUR</button>
+  &nbsp;&nbsp;<span id="labelVariant"></span>
+</div>
 
-<textarea id="jsonInput">{ "value": 123 }</textarea>
+<div style="margin-top:10px">
+  <button id="aBtn">Variant A</button>
+  <button id="bBtn">Variant B</button>
+  <button id="runBtn">Vyhodnotit</button>
+</div>
 
-<br>
+<textarea id="jsonInput">{ "signals": { "CN": {"concentration": 0.6}, "RU": {"entropy": 0.3}, "US": {"profit_bias": 0.4} }, "adapt_delta": {"cn":0.01,"ru":-0.01,"us":0.0} }</textarea>
 
-<button id="runBtn">Vyhodnotit</button>
-<button id="arcBtn">ARC</button>
-<button id="crBtn">CR</button>
-<button id="nurBtn">NUR</button>
-
-<h2>Výsledek:</h2>
-<div id="result">...</div>
+<h3>Výsledky</h3>
+<table id="respTable">
+  <thead>
+    <tr><th>Varianta</th><th>Vstup</th><th>Výstup</th><th>Rovnice</th><th>Interpretace</th></tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
 <script src="/static/ws-client.js"></script>
 </body>
