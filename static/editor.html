@@ -1,50 +1,48 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-<meta charset="UTF-8">
-<title>ARC / CR / NUR JSON Editor v18</title>
-<style>
-body { font-family: Arial; margin: 20px; }
-button { margin-right: 10px; }
-#status { font-weight: bold; padding: 5px; }
-.good { color: green; }
-.bad { color: red; }
-table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-td, th { border: 1px solid #ccc; padding: 8px; }
-</style>
+    <meta charset="UTF-8">
+    <title>JSON Editor – NUR/ARC/CR</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 250px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        #result {
+            white-space: pre-wrap;
+            background: #f0f0f0;
+            padding: 12px;
+            margin-top: 12px;
+            border-radius: 6px;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 12px;
+        }
+    </style>
 </head>
 <body>
 
-<h2>ARC / CR / NUR JSON Editor v18</h2>
+<h1>ARC / CR / NUR – JSON Editor</h1>
 
-<div id="status" class="bad">WebSocket není připojen</div>
+<textarea id="jsonInput">{ "value": 123 }</textarea>
 
-<h3>Přednastavené vstupy</h3>
-<button onclick="loadSample('ARC','A')">ARC – A</button>
-<button onclick="loadSample('ARC','B')">ARC – B</button>
-<button onclick="loadSample('CR','A')">CR – A</button>
-<button onclick="loadSample('CR','B')">CR – B</button>
-<button onclick="loadSample('NUR','A')">NUR – A</button>
-<button onclick="loadSample('NUR','B')">NUR – B</button>
+<br>
 
-<br><br>
-<textarea id="jsonInput" style="width: 600px; height: 150px;"></textarea>
-<br><br>
+<button id="runBtn">Vyhodnotit</button>
+<button id="arcBtn">ARC</button>
+<button id="crBtn">CR</button>
+<button id="nurBtn">NUR</button>
 
-<button onclick="send()">Vyhodnotit</button>
-
-<h3>Výsledky</h3>
-<table id="results">
-<tr>
-<th>Modul/Varianta</th>
-<th>Ukazatel</th>
-<th>Hodnota</th>
-<th>Rovnice</th>
-<th>Interpretace</th>
-</tr>
-</table>
+<h2>Výsledek:</h2>
+<div id="result">...</div>
 
 <script src="/static/ws-client.js"></script>
-
 </body>
 </html>
