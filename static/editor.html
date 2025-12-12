@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8"/>
+<title>ARC / CR / NUR – JSON Editor</title>
+<style>
+body { font-family: Arial; margin: 20px; }
+#editor { width: 600px; height: 300px; border: 1px solid #666; }
+button { margin: 5px; padding: 6px 10px; cursor: pointer; }
+table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+th, td { border: 1px solid #ccc; padding: 6px; vertical-align: top; }
+pre { margin: 0; white-space: pre-wrap; }
+.green { background-color: #c5f7c5; }
+.orange { background-color: #ffe9a8; }
+.red { background-color: #ffb3b3; }
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.js"></script>
+<script src="/static/ws-client.js"></script>
+</head>
+<body>
+
+<h2>ARC / CR / NUR JSON Editor</h2>
+
+<div id="editor"></div>
+
+<h3>Přednastavené vstupy</h3>
+<button onclick="loadSample('ARC','A')">ARC – A</button>
+<button onclick="loadSample('ARC','B')">ARC – B</button>
+<button onclick="loadSample('CR','A')">CR – A</button>
+<button onclick="loadSample('CR','B')">CR – B</button>
+<button onclick="loadSample('NUR','A')">NUR – A</button>
+<button onclick="loadSample('NUR','B')">NUR – B</button>
+<button onclick="send()">Vyhodnotit</button>
+
+<h3>Výsledky</h3>
+<table id="respTable">
+<thead>
+<tr>
+  <th>Varianta</th>
+  <th>Vstup</th>
+  <th>Výstup</th>
+  <th>Komentář / Rovnice</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<script>
+let editor = ace.edit("editor");
+editor.session.setMode("ace/mode/json");
+editor.setOption("fontSize", "14px");
+editor.module = "ARC";
+editor.version = "A";
+
+const presets = {
+  ARC: {
+    A: { signals: { CN:{concentration:0.6}, RU:{entropy:0.3}, US:{profit_bias:0.4} }, adapt_delta: { cn:0.01, ru:-0.01, us:0.0 } },
+    B: { signals: { CN:{concentration:0.9}, RU:{entropy:0.1}, US:{profit_bias:0.2} }, adapt_delta: { cn:0.03, ru:-0.02, us:-0.01 } }
+  },
+  CR: {
+    A: { signals: { CN:{concentration:0.2}, RU:{entropy:0.8}, US:{profit_bias:0.5} }, adapt_delta: { cn:-0.01, ru:0.03, us:0.01 } },
+    B: { signals: { CN:{concentration:0.1}, RU:{entropy:0.95}, US:{profit_bias:0.7} }, adapt_delta: { cn:-0.02, ru:0.05, us:0.02 } }
+  },
+  NUR: {
+    A: { signals: { CN:{concentration:0.5}, RU:{entropy:0.55}, US:{profit_bias:0.45} }, adapt_delta: { cn:0.0, ru:0.0, us:0.0 } },
+    B: { signals: { CN:{concentration:0.7}, RU:{entropy:0.3}, US:{profit_bias:0.5} }, adapt_delta: { cn:0.02, ru:-0.02, us:0.01 } }
+  }
+};
+
+function loadSample(module, version){
+    editor.module = module;
+    editor.version = version;
+    const data = presets[module][version];
+    editor.setValue(JSON.stringify(data,null,2), -1);
+}
+
+function send(){
+    let payload;
+    try { payload = JSON.parse(editor.getValue()); } catch(e){ alert("Neplatný JSON"); return; }
+    const mod = editor.module;
+    const ver = editor.version;
+
+    if(window.ws && window.ws.readyState === WebSocket.OPEN){
+        window.ws.send(JSON.stringify({module: mod, version: ver, payload: payload}));
+    }
+}
+</script>
+
+</body>
+</html>
