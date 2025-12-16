@@ -112,14 +112,24 @@ async def nur_ws(ws: WebSocket):
         await ws.send_json(result)
 
 
-# ---------- STATS / DIAGNOSTICS ----------
+# ------------------------
+# STATISTICS
+# ------------------------
 
 @app.get("/stats/count")
 def stats_count():
     import sqlite3
     conn = sqlite3.connect("experiment.db")
     c = conn.cursor()
+    c.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='experiments'"
+    )
+    if not c.fetchone():
+        conn.close()
+        return {"records": 0, "note": "table not created yet"}
+
     c.execute("SELECT COUNT(*) FROM experiments")
     count = c.fetchone()[0]
     conn.close()
     return {"records": count}
+
