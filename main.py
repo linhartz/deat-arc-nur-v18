@@ -3,22 +3,16 @@ from fastapi import FastAPI, WebSocket
 from arc import ARC
 from nur_engine import NUREngine
 from models import NURRequest
-from storage import init_db, log_experiment
 
 app = FastAPI(title="DEAT · ARC · NUR Survival Engine")
 
 arc = ARC()
 nur = NUREngine()
 
-@app.on_event("startup")
-def startup():
-    init_db()
-
 
 @app.post("/nur/evaluate")
 def evaluate_nur(req: NURRequest):
     arc_rel = arc.process(req.arc.dict())
-
     result = nur.stabilize(
         arc_reliability=arc_rel,
         chaotic_risk=req.chaotic_risk,
@@ -46,7 +40,6 @@ async def nur_ws(ws: WebSocket):
     await ws.accept()
     while True:
         data = await ws.receive_json()
-
         arc_rel = arc.process(data["arc"])
         result = nur.stabilize(
             arc_rel,
@@ -56,15 +49,14 @@ async def nur_ws(ws: WebSocket):
             data.get("rsz")
         )
 
-        # ⬇️ AUTOMATICKÝ ZÁPIS (LIVE)
-        log_experiment(
-            event_label=data.get("event", "ws_event"),
-            arc=data["arc"],
-            chaotic_risk=data["chaotic_risk"],
-            nur_result=result,
-            assets=data["assets"],
-            air=data.get("air"),
-            rsz=data.get("rsz")
-        )
+@app.get("/stats/count")
+def stats_count():
+    import sqlite3
+    conn = sqlite3.connect("experiment.db")
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM experiments")
+    count = c.fetchone()[0]
+    conn.close()
+    return {"records": count}
 
         await ws.send_json(result)
